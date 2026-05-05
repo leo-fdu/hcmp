@@ -1,0 +1,2 @@
+smiles,canonical_smiles,segment_id,segment_type,priority,atom_indices,bond_indices,num_atoms,num_bonds,reason
+CC=CC(=O)C,CC=CC(C)=O,0,unsaturated_conjugated,2,1 2 3 4,1 2 3,4,3,Non-ring multiple-bond seed expanded through unassigned RDKit-perceived conjugated bonds.

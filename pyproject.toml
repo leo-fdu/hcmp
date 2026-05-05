@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hcmp"
+version = "0.1.0"
+description = "HCMP v1: Hierarchical Conservative Molecular Pretraining"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "rdkit",
+    "pandas",
+    "numpy",
+    "pyyaml",
+    "tqdm",
+    "pytest",
+    "torch",
+    "pyarrow",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["hcmp*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

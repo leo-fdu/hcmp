@@ -1,0 +1,179 @@
+data:
+  input_csv: data/chembl/cleaned/chembl_clean_full.csv
+  smiles_column: smiles
+  processed_dir: data/chembl/processed
+  descriptor_values_path: data/chembl/processed/descriptor_values_full.csv
+  descriptor_thresholds: data/chembl/processed/descriptor_thresholds_full.csv
+  scaffold_distance: null
+  recompute_descriptors_in_dataset: false
+model_family: hcmp
+dataset:
+  graph_mode: cache
+  graph_cache_dir: data/chembl/graph_cache_hcmp
+  feature_mode: hcmp
+  max_loaded_shards: 4
+  shard_aware_sampling: true
+training:
+  num_epochs: 1000000
+  graph_batch_size: 64
+  learning_rate: 0.0001
+  max_molecules: null
+  device: cuda
+  use_amp: true
+  gradient_clip_norm: 1.0
+optimizer:
+  name: AdamW
+  lr: 0.0001
+  weight_decay: 0.01
+  betas:
+    - 0.9
+    - 0.999
+  eps: 1e-08
+scheduler:
+  name: cosine_with_warmup
+  warmup_ratio: 0.05
+downstream:
+  optimizer: AdamW
+  encoder_lr: 0.0002
+  head_lr: 0.0002
+  weight_decay: 0.01
+  allow_lr_override: true
+output:
+  run_dir: runs/pretrain/chembl_full/hcmp_bert_scaf/seed0
+  root_dir: runs/pretrain
+  save_every_epochs: 10
+  save_last: true
+  save_best: true
+  save_final: true
+model:
+  encoder:
+    encoder_type: graph_transformer
+    hidden_dim: 256
+    num_layers: 6
+    num_heads: 8
+    dropout: 0.1
+    attention_impl: vectorized
+  pooling:
+    type: node_edge_attention
+    pooling_impl: vectorized
+  heads:
+    mlp_hidden_dim: 256
+features:
+  atomic_numbers:
+    - 1
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 15
+    - 16
+    - 17
+    - 35
+    - 53
+  formal_charge_clip: 3
+  feature_mode: hcmp
+  rich_molecular_features: false
+bert:
+  enabled: true
+  atom_mask_ratio: 0.15
+  bond_mask_ratio: 0.15
+  atom_masking:
+    masked_fields:
+      - atomic_number
+      - formal_charge
+      - chirality
+    targets:
+      - atomic_number
+  bond_masking:
+    masked_fields:
+      - bond_type
+      - bond_stereo
+    targets:
+      - bond_type
+    mask_endpoint_nodes: false
+cut_seg:
+  enabled: false
+  input_representation: final_edge_embedding
+  pos_weight: auto
+descriptors:
+  epsilon: 0.0001
+prop_rank:
+  enabled: false
+  loss_type: pairwise_logistic
+  threshold_quantile: 0.7
+  partners_per_anchor: 10
+  average: descriptor_then_mean
+  descriptor_weights: {}
+scaf_triplet:
+  enabled: true
+  min_distance_gap: 0.15
+  margin: 0.15
+  candidate_pairs_per_anchor: 10
+  distance_backend: sqlite_cache
+  cache_path: data/chembl/cache/scaffold_distance_cache.sqlite
+  sqlite_wal: true
+  commit_every_misses: 1000
+  max_in_memory_distances: 1000000
+  max_in_memory_scaffolds: 200000
+  average: mean_valid_triplets
+  projection_head: true
+  normalize_projection: true
+loss_balancing:
+  method: fixed
+  weights:
+    bert: 1.0
+    cut_seg: 1.0
+    prop_rank: 0.5
+    scaf_triplet: 0.1
+curriculum:
+  enabled: true
+  mode: convergence
+  unit: step
+  eval_every_steps: 1000
+  window_points: 5
+  min_phase_steps: 10000
+  max_phase_steps: 100000
+  max_total_steps: 400000
+  stop_after_final_phase_plateau: true
+  window_epochs: 20
+  min_relative_improvement: 0.005
+  max_relative_worsening: 0.02
+  eps: 1e-08
+  phases:
+    -
+      name: bert
+      active_losses:
+        - bert
+      monitor: bert
+    -
+      name: segmentation
+      active_losses:
+        - bert
+        - cut_seg
+      monitor: cut_seg
+    -
+      name: property
+      active_losses:
+        - bert
+        - cut_seg
+        - prop_rank
+      monitor: prop_rank
+    -
+      name: distance
+      active_losses:
+        - bert
+        - cut_seg
+        - prop_rank
+        - scaf_triplet
+      monitor: scaf_triplet
+model_id: hcmp_bert_scaf
+run_name: hcmp_bert_scaf
+corpus_name: chembl_full
+seed: 0
+pretrain_seed: 0
+pretrain_objectives:
+  bert: true
+  cut_seg: false
+  prop_rank: false
+  scaf_triplet: true

@@ -1,0 +1,4 @@
+smiles,canonical_smiles,bond_idx,begin_atom_idx,end_atom_idx,cut_label,reason,begin_segment_id,end_segment_id,begin_segment_type,end_segment_type
+C=CC=C,C=CC=C,0,0,1,0,same_segment:unsaturated_conjugated,0,0,unsaturated_conjugated,unsaturated_conjugated
+C=CC=C,C=CC=C,1,1,2,0,same_segment:unsaturated_conjugated,0,0,unsaturated_conjugated,unsaturated_conjugated
+C=CC=C,C=CC=C,2,2,3,0,same_segment:unsaturated_conjugated,0,0,unsaturated_conjugated,unsaturated_conjugated

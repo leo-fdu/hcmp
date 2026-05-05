@@ -1,0 +1,7 @@
+smiles,canonical_smiles,bond_idx,begin_atom_idx,end_atom_idx,cut_label,reason,begin_segment_id,end_segment_id,begin_segment_type,end_segment_type
+CCN(CC)CC,CCN(CC)CC,0,0,1,0,both_atoms_unassigned_background,,,,
+CCN(CC)CC,CCN(CC)CC,1,1,2,0,both_atoms_unassigned_background,,,,
+CCN(CC)CC,CCN(CC)CC,2,2,3,0,both_atoms_unassigned_background,,,,
+CCN(CC)CC,CCN(CC)CC,3,3,4,0,both_atoms_unassigned_background,,,,
+CCN(CC)CC,CCN(CC)CC,4,2,5,0,both_atoms_unassigned_background,,,,
+CCN(CC)CC,CCN(CC)CC,5,5,6,0,both_atoms_unassigned_background,,,,

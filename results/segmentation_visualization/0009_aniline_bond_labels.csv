@@ -1,0 +1,8 @@
+smiles,canonical_smiles,bond_idx,begin_atom_idx,end_atom_idx,cut_label,reason,begin_segment_id,end_segment_id,begin_segment_type,end_segment_type
+Nc1ccccc1,Nc1ccccc1,0,0,1,1,different_segments:terminal_heteroatom|ring_system,1,0,terminal_heteroatom,ring_system
+Nc1ccccc1,Nc1ccccc1,1,1,2,0,same_segment:ring_system,0,0,ring_system,ring_system
+Nc1ccccc1,Nc1ccccc1,2,2,3,0,same_segment:ring_system,0,0,ring_system,ring_system
+Nc1ccccc1,Nc1ccccc1,3,3,4,0,same_segment:ring_system,0,0,ring_system,ring_system
+Nc1ccccc1,Nc1ccccc1,4,4,5,0,same_segment:ring_system,0,0,ring_system,ring_system
+Nc1ccccc1,Nc1ccccc1,5,5,6,0,same_segment:ring_system,0,0,ring_system,ring_system
+Nc1ccccc1,Nc1ccccc1,6,6,1,0,same_segment:ring_system,0,0,ring_system,ring_system

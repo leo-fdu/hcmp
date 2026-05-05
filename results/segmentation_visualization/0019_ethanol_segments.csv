@@ -1,0 +1,2 @@
+smiles,canonical_smiles,segment_id,segment_type,priority,atom_indices,bond_indices,num_atoms,num_bonds,reason
+CCO,CCO,0,terminal_heteroatom,4,2,,1,0,Remaining heteroatom with exactly one heavy-atom neighbor; attachment bond is labeled during final boundary generation.

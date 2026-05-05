@@ -1,0 +1,4 @@
+smiles,canonical_smiles,segment_id,segment_type,priority,atom_indices,bond_indices,num_atoms,num_bonds,reason
+c1ccccc1C=Cc2ccccc2,C(=Cc1ccccc1)c1ccccc1,0,ring_system,1,0 1 2 3 4 5,0 1 2 3 4 13,6,6,Ring-system segment from rings merged by shared atoms/bonds; separate rings merge across direct RDKit-conjugated or aromatic-compatible ring-ring bonds; exocyclic multiple bonds from ring atoms to heteroatoms are preserved.
+c1ccccc1C=Cc2ccccc2,C(=Cc1ccccc1)c1ccccc1,1,ring_system,1,8 9 10 11 12 13,8 9 10 11 12 14,6,6,Ring-system segment from rings merged by shared atoms/bonds; separate rings merge across direct RDKit-conjugated or aromatic-compatible ring-ring bonds; exocyclic multiple bonds from ring atoms to heteroatoms are preserved.
+c1ccccc1C=Cc2ccccc2,C(=Cc1ccccc1)c1ccccc1,2,unsaturated_conjugated,2,6 7,6,2,1,Non-ring multiple-bond seed expanded through unassigned RDKit-perceived conjugated bonds.

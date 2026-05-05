@@ -1,0 +1,5 @@
+smiles,canonical_smiles,bond_idx,begin_atom_idx,end_atom_idx,cut_label,reason,begin_segment_id,end_segment_id,begin_segment_type,end_segment_type
+CCOCC,CCOCC,0,0,1,0,both_atoms_unassigned_background,,,,
+CCOCC,CCOCC,1,1,2,0,both_atoms_unassigned_background,,,,
+CCOCC,CCOCC,2,2,3,0,both_atoms_unassigned_background,,,,
+CCOCC,CCOCC,3,3,4,0,both_atoms_unassigned_background,,,,

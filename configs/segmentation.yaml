@@ -1,0 +1,5 @@
+output_dir: results/segmentation_visualization
+image_format: png
+smiles_column: smiles
+max_molecules: null
+draw_atom_indices: true

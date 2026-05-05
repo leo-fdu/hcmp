@@ -1,0 +1,9 @@
+numpy
+pandas
+PyYAML
+tqdm
+rdkit
+torch
+pyarrow
+pytest
+scikit-learn

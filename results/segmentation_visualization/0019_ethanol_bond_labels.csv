@@ -1,0 +1,3 @@
+smiles,canonical_smiles,bond_idx,begin_atom_idx,end_atom_idx,cut_label,reason,begin_segment_id,end_segment_id,begin_segment_type,end_segment_type
+CCO,CCO,0,0,1,0,both_atoms_unassigned_background,,,,
+CCO,CCO,1,1,2,1,assigned_segment_to_background:terminal_heteroatom,,0.0,,terminal_heteroatom
