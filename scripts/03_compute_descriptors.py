@@ -29,6 +29,8 @@ def main() -> None:
     parser.add_argument("--output-csv", default="data/processed/descriptor_values.csv")
     parser.add_argument("--epsilon", type=float, default=1.0e-4)
     parser.add_argument("--max-molecules", type=int, default=None)
+    parser.add_argument("--num-workers", type=int, default=1)
+    parser.add_argument("--chunksize", type=int, default=256)
     args = parser.parse_args()
 
     frame = pd.read_csv(args.input_csv)
@@ -53,6 +55,8 @@ def main() -> None:
     table = compute_descriptor_table(
         list(tqdm(rows, desc="Preparing descriptor inputs")),
         epsilon=args.epsilon,
+        num_workers=args.num_workers,
+        chunksize=args.chunksize,
     )
     table.to_csv(output, index=False)
     print(f"Wrote descriptor values to {output}")
