@@ -19,7 +19,7 @@ training:
   learning_rate: 0.0001
   max_molecules: null
   device: cuda
-  use_amp: true
+  use_amp: false
   gradient_clip_norm: 1.0
 optimizer:
   name: AdamW
@@ -110,12 +110,12 @@ scaf_triplet:
   min_distance_gap: 0.15
   margin: 0.15
   candidate_pairs_per_anchor: 10
-  distance_backend: sqlite_cache
-  cache_path: data/chembl/cache/scaffold_distance_cache.sqlite
+  distance_backend: on_the_fly
+  cache_path: null
   sqlite_wal: true
   commit_every_misses: 1000
-  max_in_memory_distances: 1000000
-  max_in_memory_scaffolds: 200000
+  max_in_memory_distances: 0
+  max_in_memory_scaffolds: 0
   average: mean_valid_triplets
   projection_head: true
   normalize_projection: true

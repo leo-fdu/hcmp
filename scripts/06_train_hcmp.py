@@ -37,6 +37,7 @@ def main() -> None:
     parser.add_argument("--device", default=None)
     parser.add_argument("--output-dir", default=None)
     parser.add_argument("--save-every-epochs", type=int, default=None)
+    parser.add_argument("--save-every-steps", type=int, default=None)
     parser.add_argument("--resume-from", default=None)
     parser.add_argument("--attention-impl", choices=["loop", "vectorized"], default=None)
     parser.add_argument("--pooling-impl", choices=["loop", "vectorized"], default=None)
@@ -87,6 +88,8 @@ def main() -> None:
         pooling_config["pooling_impl"] = args.pooling_impl
     if args.save_every_epochs is not None:
         output_config["save_every_epochs"] = args.save_every_epochs
+    if args.save_every_steps is not None:
+        output_config["save_every_steps"] = args.save_every_steps
     if args.output_dir is not None:
         output_config["run_dir"] = args.output_dir
     train_config["num_epochs"] = int(num_epochs)
@@ -220,11 +223,15 @@ def main() -> None:
     scaffold_distance_matrix = None
     scaffold_distance_metadata = None
     scaffold_cache_path = args.scaffold_distance_cache or scaf_config.get("cache_path")
+    if scaffold_backend_name == "on_the_fly":
+        scaffold_cache_path = None
     if scaffold_backend_name == "full_matrix":
         scaffold_path = args.scaffold_distance or data_config.get("scaffold_distance")
         scaffold_distance_matrix, scaffold_distance_metadata = _load_scaffold_distance(scaffold_path)
     scaffold_distance_backend = None
     if bool(scaf_config.get("enabled", True)):
+        scaffold_distance_default = 0 if scaffold_backend_name == "on_the_fly" else 1_000_000
+        scaffold_object_default = 0 if scaffold_backend_name == "on_the_fly" else 200_000
         scaffold_distance_backend = build_scaffold_distance_backend(
             scaffold_backend_name,
             molecule_table=molecule_table,
@@ -237,11 +244,11 @@ def main() -> None:
             commit_every_misses=int(scaf_config.get("commit_every_misses", 1000)),
             max_in_memory_distances=_int_config_default(
                 scaf_config.get("max_in_memory_distances"),
-                1_000_000,
+                scaffold_distance_default,
             ),
             max_in_memory_scaffolds=_int_config_default(
                 scaf_config.get("max_in_memory_scaffolds"),
-                200_000,
+                scaffold_object_default,
             ),
         )
     model = HCMPModel(
@@ -275,6 +282,7 @@ def main() -> None:
         eps=float(optimizer_config.get("eps", 1.0e-8)),
     )
     max_total_steps = train_config.get("max_total_steps", config.get("curriculum", {}).get("max_total_steps"))
+    max_total_steps = int(max_total_steps) if max_total_steps is not None else None
     scheduler = _build_scheduler(torch, optimizer, config.get("scheduler", {}), max_total_steps)
     trainer = HCMPTrainer(
         model=model,
@@ -340,6 +348,8 @@ def main() -> None:
     global_step = 0
     resume_step_in_epoch = 0
     resume_skip_steps = 0
+    resumed_checkpoint_epoch = 0
+    resumed_at_max_total_steps = False
     if args.resume_from is not None:
         checkpoint = _load_checkpoint(torch, args.resume_from, map_location=device)
         model.load_state_dict(checkpoint["model_state_dict"])
@@ -351,6 +361,7 @@ def main() -> None:
         if checkpoint.get("grad_scaler_state_dict") is not None:
             trainer.scaler.load_state_dict(checkpoint["grad_scaler_state_dict"])
         _restore_curriculum_state(curriculum, checkpoint.get("curriculum_state"))
+        _restore_loss_balancer_state(trainer.loss_balancer, checkpoint.get("loss_balancer_state"))
         checkpoint_rng_state = checkpoint.get("rng_state")
         if checkpoint_rng_state is None and (
             checkpoint.get("python_random_state") is not None or checkpoint.get("numpy_rng_state") is not None
@@ -363,14 +374,19 @@ def main() -> None:
             }
         _restore_rng_state(torch, checkpoint_rng_state)
         checkpoint_epoch = int(checkpoint.get("epoch", 0))
+        resumed_checkpoint_epoch = checkpoint_epoch
         global_step = int(checkpoint.get("global_step", checkpoint.get("final_global_step", 0)))
         resume_step_in_epoch = int(checkpoint.get("step_in_epoch", 0) or 0)
-        if checkpoint.get("training_status") == "interrupted" and resume_step_in_epoch > 0:
+        if (
+            checkpoint.get("training_status") == "interrupted"
+            or checkpoint.get("checkpoint_kind") == "step"
+        ) and resume_step_in_epoch > 0:
             start_epoch = max(0, checkpoint_epoch - 1)
             resume_skip_steps = resume_step_in_epoch
         else:
             start_epoch = checkpoint_epoch
         best_metric = checkpoint.get("best_metric")
+        resumed_at_max_total_steps = max_total_steps is not None and global_step >= max_total_steps
         print(
             f"Resumed from {args.resume_from} at epoch={start_epoch} "
             f"global_step={global_step} step_in_epoch={resume_step_in_epoch}"
@@ -384,22 +400,25 @@ def main() -> None:
         f"run_dir={run_dir}"
     )
     training_completed = False
-    last_completed_epoch = start_epoch
+    last_completed_epoch = resumed_checkpoint_epoch if resumed_at_max_total_steps else start_epoch
     final_status = "failed"
     stopping_reason = None
     interrupted_exception = None
     curriculum_history: list[dict[str, object]] = []
     unit = str(config.get("curriculum", {}).get("unit", "epoch"))
     eval_every_steps = int(config.get("curriculum", {}).get("eval_every_steps", 1000))
-    max_total_steps = (
-        int(max_total_steps) if max_total_steps is not None else None
-    )
     max_phase_steps = config.get("curriculum", {}).get("max_phase_steps")
     max_phase_steps = int(max_phase_steps) if max_phase_steps is not None else None
+    save_every_steps = int(output_config.get("save_every_steps", 0) or 0)
     stop_after_final_phase_plateau = bool(config.get("curriculum", {}).get("stop_after_final_phase_plateau", True))
     current_step_in_epoch = resume_step_in_epoch
+    if resumed_at_max_total_steps:
+        stopping_reason = "max_total_steps"
+        final_status = "max_total_steps"
+        training_completed = True
     try:
-        for epoch in range(start_epoch, num_epochs):
+        epoch_range = range(start_epoch, start_epoch) if resumed_at_max_total_steps else range(start_epoch, num_epochs)
+        for epoch in epoch_range:
             epoch_number = epoch + 1
             last_completed_epoch = epoch_number
             if batch_sampler is not None:
@@ -525,6 +544,31 @@ def main() -> None:
                             f"old_phase={old_phase} new_phase={curriculum.current_phase.name} "
                             f"global_step={global_step} reason=max_phase_steps"
                         )
+                if save_every_steps > 0 and global_step % save_every_steps == 0:
+                    _save_checkpoint(
+                        checkpoints_dir / "last.pt",
+                        torch=torch,
+                        model=model,
+                        optimizer=optimizer,
+                        epoch=epoch_number,
+                        config=config,
+                        curriculum=curriculum,
+                        loss_balancer=trainer.loss_balancer,
+                        best_metric=best_metric,
+                        descriptor_names=threshold_descriptor_names or DESCRIPTOR_NAMES,
+                        feature_spec=feature_spec,
+                        global_step=global_step,
+                        step_in_epoch=current_step_in_epoch,
+                        scheduler=scheduler,
+                        grad_scaler=trainer.scaler,
+                        stopping_reason=stopping_reason,
+                        checkpoint_kind="step",
+                    )
+                    print(
+                        "step_checkpoint_saved "
+                        f"global_step={global_step} step_in_epoch={current_step_in_epoch}",
+                        flush=True,
+                    )
                 if max_total_steps is not None and global_step >= max_total_steps:
                     stopping_reason = "max_total_steps"
                     final_status = "max_total_steps"
@@ -550,6 +594,7 @@ def main() -> None:
                     scheduler=scheduler,
                     grad_scaler=trainer.scaler,
                     stopping_reason=stopping_reason,
+                    checkpoint_kind="epoch",
                 )
             save_every = int(output_config.get("save_every_epochs", 0) or 0)
             if save_every > 0 and epoch_number % save_every == 0:
@@ -570,6 +615,7 @@ def main() -> None:
                     scheduler=scheduler,
                     grad_scaler=trainer.scaler,
                     stopping_reason=stopping_reason,
+                    checkpoint_kind="epoch",
                 )
             if stopping_reason in {"max_total_steps", "convergence_final_phase", "max_phase_steps_final_phase"}:
                 break
@@ -632,6 +678,7 @@ def main() -> None:
                         scheduler=scheduler,
                         grad_scaler=trainer.scaler,
                         stopping_reason=stopping_reason,
+                        checkpoint_kind="final",
                     )
             else:
                 _save_checkpoint(
@@ -653,6 +700,7 @@ def main() -> None:
                     scheduler=scheduler,
                     grad_scaler=trainer.scaler,
                     stopping_reason=stopping_reason,
+                    checkpoint_kind="interrupted",
                 )
         except Exception as save_exc:
             if training_completed:
@@ -728,6 +776,7 @@ _TRAIN_LOG_COLUMNS = [
     "num_valid_triplets",
     "scaffold_cache_hits",
     "scaffold_cache_misses",
+    "scaffold_distance_failures",
     "lr",
     "seconds_per_step",
     "gpu_memory_allocated_mb",
@@ -888,6 +937,9 @@ def _write_train_log_row(
         "num_valid_triplets": _format_float(losses.get("num_valid_triplets", 0.0)),
         "scaffold_cache_hits": _format_float(losses.get("cache_hits", 0.0)),
         "scaffold_cache_misses": _format_float(losses.get("cache_misses", 0.0)),
+        "scaffold_distance_failures": _format_float(
+            losses.get("scaffold_distance_failures", 0.0)
+        ),
         "lr": _format_float(learning_rate),
         "seconds_per_step": _format_float(seconds_per_step),
         "gpu_memory_allocated_mb": _format_float(_gpu_memory_allocated_mb(device)),
@@ -916,6 +968,7 @@ def _save_checkpoint(
     scheduler=None,
     grad_scaler=None,
     stopping_reason: str | None = None,
+    checkpoint_kind: str | None = None,
 ) -> None:
     from hcmp.training.curriculum import curriculum_to_metadata
 
@@ -943,6 +996,7 @@ def _save_checkpoint(
         "torch_rng_state": rng_state.get("torch"),
         "torch_cuda_rng_state": rng_state.get("torch_cuda"),
         "training_status": training_status,
+        "checkpoint_kind": checkpoint_kind,
         "final_stopping_reason": stopping_reason,
         "final_global_step": int(global_step),
         "final_epoch": int(epoch),
@@ -975,7 +1029,10 @@ def _save_checkpoint(
     if exception is not None:
         checkpoint["exception_type"] = type(exception).__name__
         checkpoint["exception_message"] = str(exception)
-    torch.save(checkpoint, path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    torch.save(checkpoint, tmp_path)
+    tmp_path.replace(path)
 
 
 def _load_checkpoint(torch, path: str | Path, map_location):
@@ -1088,6 +1145,15 @@ def _restore_curriculum_state(curriculum, state: dict | None) -> None:
                 print(f"Warning: checkpoint curriculum_state is missing {name}.")
     if not restored_any:
         print("Warning: checkpoint curriculum_state did not match this curriculum object.")
+
+
+def _restore_loss_balancer_state(loss_balancer, state: dict | None) -> None:
+    if not state:
+        return
+    if "method" in state and state["method"] is not None:
+        loss_balancer.method = state["method"]
+    if "weights" in state and state["weights"] is not None:
+        loss_balancer.weights = dict(state["weights"])
 
 
 def _move_optimizer_state_to_device(optimizer, device) -> None:

@@ -215,30 +215,40 @@ def sampled_in_batch_scaffold_triplet_loss(
     anchors: list[int] = []
     positives: list[int] = []
     negatives: list[int] = []
-    for anchor_idx in range(num_molecules):
-        candidates = _sample_candidate_pairs(
-            num_molecules,
-            anchor_idx,
-            candidate_pairs_per_anchor,
-            scaffold_projection.device,
-        )
-        metrics["num_sampled_candidate_pairs"] += float(len(candidates))
-        for first_idx, second_idx in candidates:
-            d_first = float(backend.get_distance(global_list[anchor_idx], global_list[first_idx]))
-            d_second = float(backend.get_distance(global_list[anchor_idx], global_list[second_idx]))
-            if d_first + min_distance_gap < d_second:
-                positive_idx, negative_idx = first_idx, second_idx
-            elif d_second + min_distance_gap < d_first:
-                positive_idx, negative_idx = second_idx, first_idx
-            else:
-                continue
-            anchors.append(anchor_idx)
-            positives.append(positive_idx)
-            negatives.append(negative_idx)
+    if hasattr(backend, "begin_batch"):
+        backend.begin_batch()
+    try:
+        for anchor_idx in range(num_molecules):
+            candidates = _sample_candidate_pairs(
+                num_molecules,
+                anchor_idx,
+                candidate_pairs_per_anchor,
+                scaffold_projection.device,
+            )
+            metrics["num_sampled_candidate_pairs"] += float(len(candidates))
+            for first_idx, second_idx in candidates:
+                d_first = float(backend.get_distance(global_list[anchor_idx], global_list[first_idx]))
+                d_second = float(backend.get_distance(global_list[anchor_idx], global_list[second_idx]))
+                if d_first + min_distance_gap < d_second:
+                    positive_idx, negative_idx = first_idx, second_idx
+                elif d_second + min_distance_gap < d_first:
+                    positive_idx, negative_idx = second_idx, first_idx
+                else:
+                    continue
+                anchors.append(anchor_idx)
+                positives.append(positive_idx)
+                negatives.append(negative_idx)
+    finally:
+        if hasattr(backend, "end_batch"):
+            backend.end_batch()
 
     after_stats = _backend_stats(backend)
     metrics["cache_hits"] = float(after_stats.get("cache_hits", 0) - before_stats.get("cache_hits", 0))
     metrics["cache_misses"] = float(after_stats.get("cache_misses", 0) - before_stats.get("cache_misses", 0))
+    metrics["scaffold_distance_failures"] = float(
+        after_stats.get("scaffold_distance_failures", 0)
+        - before_stats.get("scaffold_distance_failures", 0)
+    )
     metrics["num_valid_triplets"] = float(len(anchors))
     if not anchors:
         return zero, metrics

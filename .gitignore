@@ -1,20 +1,30 @@
 # =========================
-# DATA (CRITICAL)
+# DATA / LOCAL ARTIFACTS AT REPO ROOT
 # =========================
-data/
+/data/
+/runs/
+/logs/
+/results/
+/memo/
+/graph_cache/
+/checkpoints/
+
+# generated graph caches anywhere
 graph_cache/
 */graph_cache/
-*.sqlite
-*.db
 
 # =========================
-# TRAINING OUTPUT
+# DATABASES / MODEL FILES / ARCHIVES
 # =========================
-runs/
-checkpoints/
+*.sqlite
+*.db
 *.pt
 *.pth
 *.ckpt
+*.tar
+*.tar.gz
+*.tgz
+*.zip
 
 # =========================
 # CACHE
@@ -30,6 +40,7 @@ __pycache__/
 # =========================
 .env
 .venv/
+venv/
 conda/
 *.env
 
@@ -37,9 +48,3 @@ conda/
 # SYSTEM
 # =========================
 .DS_Store
-
-# =========================
-# OPTIONAL
-# =========================
-logs/
-*.log

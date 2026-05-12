@@ -62,6 +62,7 @@ def main() -> None:
         config = copy.deepcopy(base)
         _stamp_common(config, args, model_id)
         _set_feature_mode(config, "hcmp", args.hcmp_graph_cache_dir)
+        _set_on_the_fly_scaffold_backend(config)
         config["model_family"] = "hcmp"
         for key, enabled in flags.items():
             config[key]["enabled"] = bool(enabled)
@@ -77,6 +78,7 @@ def _stamp_common(config: dict, args, model_id: str) -> None:
     config["corpus_name"] = args.corpus_name
     config["seed"] = int(args.seed)
     config["pretrain_seed"] = int(args.seed)
+    config.setdefault("training", {})["use_amp"] = False
     config.setdefault("dataset", {})["graph_mode"] = "cache"
     config["dataset"]["shard_aware_sampling"] = True
     config.setdefault("data", {})["descriptor_thresholds"] = args.descriptor_thresholds
@@ -96,6 +98,7 @@ def _graph_bert_config(base: dict, args) -> dict:
     config["model_family"] = "graph_bert"
     config["baseline"] = "traditional_graph_bert"
     config["graph_bert"] = _graph_bert_section()
+    _set_on_the_fly_scaffold_backend(config)
     config["cut_seg"]["enabled"] = False
     config["prop_rank"]["enabled"] = False
     config["scaf_triplet"]["enabled"] = False
@@ -107,6 +110,14 @@ def _graph_bert_config(base: dict, args) -> dict:
     }
     config["output"]["run_dir"] = f"runs/pretrain/{args.corpus_name}/graph_bert/seed{args.seed}"
     return config
+
+
+def _set_on_the_fly_scaffold_backend(config: dict) -> None:
+    scaf_config = config.setdefault("scaf_triplet", {})
+    scaf_config["distance_backend"] = "on_the_fly"
+    scaf_config["cache_path"] = None
+    scaf_config["max_in_memory_distances"] = 0
+    scaf_config["max_in_memory_scaffolds"] = 0
 
 
 def _graph_bert_section() -> dict:

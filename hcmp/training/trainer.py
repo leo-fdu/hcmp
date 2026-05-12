@@ -132,6 +132,7 @@ class HCMPTrainer:
             "num_valid_triplets": 0.0,
             "cache_hits": 0.0,
             "cache_misses": 0.0,
+            "scaffold_distance_failures": 0.0,
         }
 
         if (
